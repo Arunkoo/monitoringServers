@@ -5,3 +5,4 @@ dist
 Dockerfile
 npm-debug.log
 pnpm-debug..log
+*.pem
