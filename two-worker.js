@@ -1,10 +1,10 @@
-//  utilizing 2 core  for cpu extensive task...
-import { workerData, parentPort } from "worker_threads";
+import { parentPort, workerData } from "worker_threads";
 
 let counter = 0;
 
-for (let i = 0; i < 10e10 / workerData.thread_count; i++) {
+// divide the heavy work among worker threads
+for (let i = 0; i < 1_000_000_000 / workerData.thread_count; i++) {
   counter++;
 }
 
-parentPort?.postMessage(counter);
+parentPort.postMessage(counter);
