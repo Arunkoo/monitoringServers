@@ -2,6 +2,7 @@ import cluster from "cluster";
 import os from "os";
 import AgentAPI from "apminsight";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { Worker } from "worker_threads";
 
 const numCPUs = os.cpus().length;
@@ -9,13 +10,13 @@ const port = process.env.PORT ?? 8000;
 const THREAD_COUNT = 2;
 
 function createWorker() {
-  return new Promise((resolve, reject) => {
+  return new Promise<number>((resolve, reject) => {
     const worker = new Worker(new URL("./two-worker.js", import.meta.url), {
       workerData: { thread_count: THREAD_COUNT },
     });
 
-    worker.on("message", (data) => {
-      resolve(data); // keep this numeric
+    worker.on("message", (data: number) => {
+      resolve(data);
     });
 
     worker.on("error", (error) => {
@@ -36,6 +37,27 @@ function startServer() {
   AgentAPI.config();
 
   console.log(`Worker process started: PID ${process.pid}`);
+
+  // General limiter for all routes
+  const appLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 20, // max 20 requests in 1 minute
+    message: {
+      message: "Too many requests, please try again later.",
+    },
+  });
+
+  // Strict limiter for blocking route
+  const blockingLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 5, // max 5 requests in 1 minute
+    message: {
+      message: "Too many blocking requests, please try again later.",
+    },
+  });
+
+  // apply general limiter to all routes
+  app.use(appLimiter);
 
   // fast api
   app.get("/", (req, res) => {
@@ -61,9 +83,9 @@ function startServer() {
   });
 
   // blocking cpu-heavy task handled with worker threads
-  app.get("/blocking", async (req, res) => {
+  app.get("/blocking", blockingLimiter, async (req, res) => {
     try {
-      const workerPromises = [];
+      const workerPromises: Promise<number>[] = [];
 
       for (let i = 0; i < THREAD_COUNT; i++) {
         workerPromises.push(createWorker());
@@ -71,10 +93,7 @@ function startServer() {
 
       const threadResults = await Promise.all(workerPromises);
 
-      const total = threadResults.reduce(
-        (sum: any, value: any) => sum + value,
-        0,
-      );
+      const total = threadResults.reduce((sum, value) => sum + value, 0);
 
       res.status(200).json({
         message: "CPU task completed",
