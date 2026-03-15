@@ -2,7 +2,8 @@ import cluster from "cluster";
 import os from "os";
 import AgentAPI from "apminsight";
 import express from "express";
-import rateLimit from "express-rate-limit";
+// import rateLimit from "express-rate-limit";
+import customRateLimiter from "./middleware/customRateLimiter.js";
 import { Worker } from "worker_threads";
 
 const numCPUs = os.cpus().length;
@@ -35,25 +36,19 @@ function startServer() {
   const app = express();
 
   AgentAPI.config();
-
+  app.set("trust proxy", 1);
   console.log(`Worker process started: PID ${process.pid}`);
 
   // General limiter for all routes
-  const appLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 20, // max 20 requests in 1 minute
-    message: {
-      message: "Too many requests, please try again later.",
-    },
+  const appLimiter = customRateLimiter({
+    windowMs: 1 * 60 * 1000,
+    maxRequest: 20,
   });
 
   // Strict limiter for blocking route
-  const blockingLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 5, // max 5 requests in 1 minute
-    message: {
-      message: "Too many blocking requests, please try again later.",
-    },
+  const blockingLimiter = customRateLimiter({
+    windowMs: 1 * 60 * 1000,
+    maxRequest: 5,
   });
 
   // apply general limiter to all routes
