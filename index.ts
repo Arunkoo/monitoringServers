@@ -5,7 +5,7 @@ import express from "express";
 // import rateLimit from "express-rate-limit";
 import customRateLimiter from "./middleware/customRateLimiter.js";
 import { Worker } from "worker_threads";
-
+import Zlib from "zlib";
 const numCPUs = os.cpus().length;
 const port = process.env.PORT ?? 8000;
 const THREAD_COUNT = 2;
@@ -75,6 +75,34 @@ function startServer() {
   // non-blocking task
   app.get("/non-blocking", (req, res) => {
     res.status(200).send(`data is processed by PID ${process.pid}`);
+  });
+
+  //intentional bug reproducable  route
+  app.get("/xml-gzip", (req, res) => {
+    res.status(200);
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Content-Encoding", "gzip");
+    // no Content-Length => chunked
+
+    const gzip = Zlib.createGzip();
+    gzip.pipe(res);
+
+    gzip.write('<?xml version="1.0" encoding="UTF-8"?>\n');
+    gzip.write("<root>\n");
+
+    let i = 1;
+    const interval = setInterval(() => {
+      for (let j = 0; j < 20; j++) {
+        gzip.write(`  <item id="${i}">Value ${i} हिन्दी € &amp; data</item>\n`);
+        i++;
+      }
+
+      if (i > 2000) {
+        clearInterval(interval);
+        gzip.write("</root>\n");
+        gzip.end();
+      }
+    }, 50);
   });
 
   // blocking cpu-heavy task handled with worker threads

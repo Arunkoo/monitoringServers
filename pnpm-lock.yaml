@@ -17,6 +17,9 @@ importers:
       express-rate-limit:
         specifier: ^8.3.1
         version: 8.3.1(express@5.2.1)
+      zlib:
+        specifier: ^1.0.5
+        version: 1.0.5
     devDependencies:
       '@types/express':
         specifier: ^5.0.6
@@ -716,6 +719,10 @@ packages:
     resolution: {integrity: sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw==}
     engines: {node: '>=18'}
 
+  zlib@1.0.5:
+    resolution: {integrity: sha512-40fpE2II+Cd3k8HWTWONfeKE2jL+P42iWJ1zzps5W51qcTsOUKM5Q5m2PFb0CLxlmFAaUuUdJGc3OfZy947v0w==}
+    engines: {node: '>=0.2.0'}
+
 snapshots:
 
   '@apminsight/native-stats@2.0.0':
@@ -1397,3 +1404,5 @@ snapshots:
 
   yallist@5.0.0:
     optional: true
+
+  zlib@1.0.5: {}
