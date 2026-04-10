@@ -9,21 +9,15 @@ import Zlib from "zlib";
 const numCPUs = os.cpus().length;
 const port = process.env.PORT ?? 8000;
 const THREAD_COUNT = 2;
+const WORKER_SCRIPT = new URL("./two-worker.js", import.meta.url);
+const WORKER_DATA = { thread_count: THREAD_COUNT };
 
-function createWorker() {
+function createWorker(): Promise<number> {
   return new Promise<number>((resolve, reject) => {
-    const worker = new Worker(new URL("./two-worker.js", import.meta.url), {
-      workerData: { thread_count: THREAD_COUNT },
-    });
+    const worker = new Worker(WORKER_SCRIPT, { workerData: WORKER_DATA });
 
-    worker.on("message", (data: number) => {
-      resolve(data);
-    });
-
-    worker.on("error", (error) => {
-      reject(error);
-    });
-
+    worker.on("message", resolve);
+    worker.on("error", reject);
     worker.on("exit", (code) => {
       if (code !== 0) {
         reject(new Error(`Worker stopped with exit code ${code}`));
