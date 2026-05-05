@@ -1,9 +1,11 @@
 import { parentPort, workerData } from "worker_threads";
 
-let counter = 0;
+if (!parentPort) throw new Error("two-worker.js must be run as a Worker thread");
 
-// divide the heavy work among worker threads
-for (let i = 0; i < 1_000_000_000 / workerData.thread_count; i++) {
+const iterations = 1_000_000_000 / (workerData?.thread_count ?? 1);
+
+let counter = 0;
+for (let i = 0; i < iterations; i++) {
   counter++;
 }
 

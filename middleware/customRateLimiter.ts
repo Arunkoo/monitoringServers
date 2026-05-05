@@ -13,40 +13,29 @@ interface StoreEntry {
 const customRateLimiter = ({ windowMs, maxRequest }: RateLimiterOptions) => {
   const store = new Map<string, StoreEntry>();
 
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+      if (now - entry.startTime > windowMs) store.delete(key);
+    }
+  }, windowMs).unref();
+
   return function (req: Request, res: Response, next: NextFunction) {
     const key = req.ip ?? "unknown-ip";
     const now = Date.now();
-
     const existing = store.get(key);
 
-    if (!existing) {
-      store.set(key, {
-        count: 1,
-        startTime: now,
-      });
-      return next();
-    }
-
-    const isWindowExpired = now - existing.startTime > windowMs;
-
-    if (isWindowExpired) {
-      store.set(key, {
-        count: 1,
-        startTime: now,
-      });
+    if (!existing || now - existing.startTime > windowMs) {
+      store.set(key, { count: 1, startTime: now });
       return next();
     }
 
     if (existing.count >= maxRequest) {
-      return res.status(429).json({
-        message: "Too many requests, please try again later.",
-      });
+      return res.status(429).json({ message: "Too many requests, please try again later." });
     }
 
     existing.count += 1;
-    store.set(key, existing);
-
-    next();
+    return next();
   };
 };
 

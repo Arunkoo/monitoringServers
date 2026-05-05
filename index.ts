@@ -10,9 +10,9 @@ import Zlib from "zlib";
 const NUM_CPUS = os.cpus().length;
 const PORT = Number(process.env.PORT) || 8000;
 const THREAD_COUNT = 2;
-const WORKER_SCRIPT = new URL("./two-worker.js", import.meta.url);
+const WORKER_SCRIPT = new URL("./worker.js", import.meta.url);
 const WORKER_DATA = { thread_count: THREAD_COUNT };
-const WINDOW_MS = 60_000; // 1 minute
+const WINDOW_MS = 60_000;
 
 // ── Worker helper ─────────────────────────────────────────────────────────────
 function createWorker(): Promise<number> {
@@ -42,24 +42,21 @@ function startServer(): void {
 
   app.use(appLimiter);
 
-  // GET / — health / fast response
   app.get("/", (_req, res) => {
     res.json({ message: "Hello World", pid: process.pid });
   });
 
-  // GET /slow — simulates a delayed response (10 s)
   app.get("/slow", (_req, res) => {
     setTimeout(() => {
       res.json({ message: "Slow API", pid: process.pid });
     }, 10_000);
   });
 
-  // GET /non-blocking — instant I/O-safe response
   app.get("/non-blocking", (_req, res) => {
     res.send(`data is processed by PID ${process.pid}`);
   });
 
-  // GET /xml-gzip — streams gzip-compressed XML (intentional bug reproduction route)
+  // intentional bug-reproduction route
   app.get("/xml-gzip", (_req, res) => {
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Content-Encoding", "gzip");
@@ -70,7 +67,9 @@ function startServer(): void {
     gzip.write('<?xml version="1.0" encoding="UTF-8"?>\n<root>\n');
 
     let i = 1;
-    const interval = setInterval(() => {
+    let interval: ReturnType<typeof setInterval>;
+    res.on("close", () => clearInterval(interval));
+    interval = setInterval(() => {
       for (let j = 0; j < 20; j++) {
         gzip.write(`  <item id="${i}">Value ${i} हिन्दी € &amp; data</item>\n`);
         i++;
@@ -82,11 +81,8 @@ function startServer(): void {
         gzip.end();
       }
     }, 50);
-
-    res.on("close", () => clearInterval(interval));
   });
 
-  // GET /blocking — CPU-heavy task offloaded to worker threads
   app.get("/blocking", blockingLimiter, async (_req, res) => {
     try {
       const threadResults = await Promise.all(
